@@ -9,9 +9,13 @@ using Microsoft.WindowsAzure.Storage;
 using System.Configuration;
 using ImageUploadAPI.Controllers;
 using Swashbuckle.Swagger.Annotations;
+using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace ImageUpload.Controllers
 {
+    /// <summary>
+    /// Image Upload API for uploading images to Azure Blob Storage
+    /// </summary>
     public class UploadImageController : ApiController
     {
         /// <summary>
@@ -57,24 +61,39 @@ namespace ImageUpload.Controllers
             var imageName = string.Concat(fileName, extension);
 
             //Get the reference to the Blob Storage and upload the file there
-            var storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
-            var storageAccount = CloudStorageAccount.Parse(storageConnectionString);
-            var blobClient = storageAccount.CreateCloudBlobClient();
-            var container = blobClient.GetContainerReference("images");
-            container.CreateIfNotExists();
+            //var storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
+            //var storageAccount = CloudStorageAccount.Parse(storageConnectionString);
+            //var blobClient = storageAccount.CreateCloudBlobClient();
 
+            //var container = blobClient.GetContainerReference("images");
+            //container.CreateIfNotExists();
+            //Get the reference to the Blob Container from the SAS Key
+            var containerSASKey = ConfigurationManager.AppSettings["SASImageWritePolicy"];
+            var container = new CloudBlobContainer(new Uri(containerSASKey));
             var blockBlob = container.GetBlockBlobReference(imageName);
             blockBlob.Properties.ContentType = contentType;
-            using (var fileStream = await uploadedFile.ReadAsStreamAsync()) //as Stream is IDisposable
+
+            try
             {
-                blockBlob.UploadFromStream(fileStream);
+                using (var fileStream = await uploadedFile.ReadAsStreamAsync()) //as Stream is IDisposable
+                {
+                    blockBlob.UploadFromStream(fileStream);
+                }
             }
+            catch (StorageException e)
+            {
+                return BadRequest(e.Message);
+            }
+
+            //Generate the shared access signature on the blob.
+            string sasBlobToken = blockBlob.GetSharedAccessSignature(null, ConfigurationManager.AppSettings["ImageReadPolicy"]);
+
             var fileInfo = new UploadedFileInfo
             {
                 FileName = fileName,
                 FileExtension = extension,
                 ContentType = contentType,
-                FileURL = blockBlob.Uri.ToString()
+                FileURL = blockBlob.Uri.ToString() + sasBlobToken 
             };
             return Ok(fileInfo);
 
