@@ -61,15 +61,13 @@ namespace ImageUpload.Controllers
             var imageName = string.Concat(fileName, extension);
 
             //Get the reference to the Blob Storage and upload the file there
-            //var storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
-            //var storageAccount = CloudStorageAccount.Parse(storageConnectionString);
-            //var blobClient = storageAccount.CreateCloudBlobClient();
+            var storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
+            var storageAccount = CloudStorageAccount.Parse(storageConnectionString);
+            var blobClient = storageAccount.CreateCloudBlobClient();
 
-            //var container = blobClient.GetContainerReference("images");
-            //container.CreateIfNotExists();
-            //Get the reference to the Blob Container from the SAS Key
-            var containerSASKey = ConfigurationManager.AppSettings["SASImageWritePolicy"];
-            var container = new CloudBlobContainer(new Uri(containerSASKey));
+            var container = blobClient.GetContainerReference("images");
+            container.CreateIfNotExists();
+
             var blockBlob = container.GetBlockBlobReference(imageName);
             blockBlob.Properties.ContentType = contentType;
 
@@ -85,17 +83,24 @@ namespace ImageUpload.Controllers
                 return BadRequest(e.Message);
             }
 
-            //Generate the shared access signature on the blob.
-            string sasBlobToken = blockBlob.GetSharedAccessSignature(null, ConfigurationManager.AppSettings["ImageReadPolicy"]);
-
-            var fileInfo = new UploadedFileInfo
+            try
             {
-                FileName = fileName,
-                FileExtension = extension,
-                ContentType = contentType,
-                FileURL = blockBlob.Uri.ToString() + sasBlobToken 
-            };
-            return Ok(fileInfo);
+                //Generate the shared access signature on the blob.
+                string sasBlobToken = blockBlob.GetSharedAccessSignature(null, ConfigurationManager.AppSettings["StoredAccessPolicyName"]);
+
+                var fileInfo = new UploadedFileInfo
+                {
+                    FileName = fileName,
+                    FileExtension = extension,
+                    ContentType = contentType,
+                    FileURL = blockBlob.Uri.ToString() + sasBlobToken
+                };
+                return Ok(fileInfo);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
 
         }
         /// <summary>

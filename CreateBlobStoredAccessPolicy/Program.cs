@@ -30,13 +30,7 @@ namespace CreateBlobStoredAccessPolicy
             //shared access signatures on the container and the blob.
             string sharedAccessPolicyName = "ImageReadPolicy";
             CreateSharedAccessPolicy(blobClient, container, sharedAccessPolicyName);
-
-            string sharedAccessWritePolicyName = "ImageWritePolicy";
-            CreateSharedAccessWritePolicy(blobClient, container, sharedAccessWritePolicyName);
-
-            //Generate a SAS URI for the container, using a stored access policy to set constraints on the SAS.
-            Console.WriteLine("Container SAS URI using stored access policy: " + GetContainerSasUriWithPolicy(container, sharedAccessWritePolicyName));
-            Console.WriteLine();
+            Console.WriteLine("SAS Policy {0} created successfully for the {1}", sharedAccessPolicyName, container.StorageUri.PrimaryUri.ToString());
 
             //Require user input before closing the console window.
             Console.ReadLine();
@@ -57,32 +51,5 @@ namespace CreateBlobStoredAccessPolicy
             permissions.SharedAccessPolicies.Add(policyName, sharedPolicy);
             container.SetPermissions(permissions);
         }
-        static void CreateSharedAccessWritePolicy(CloudBlobClient blobClient, CloudBlobContainer container, string policyName)
-        {
-            //Create a new shared access policy and define its constraints.
-            SharedAccessBlobPolicy sharedPolicy = new SharedAccessBlobPolicy()
-            {
-                SharedAccessExpiryTime = DateTime.UtcNow.AddYears(2),
-                Permissions = SharedAccessBlobPermissions.Write | SharedAccessBlobPermissions.List
-            };
-
-            //Get the container's existing permissions.
-            BlobContainerPermissions permissions = container.GetPermissions();
-
-            //Add the new policy to the container's permissions, and set the container's permissions.
-            permissions.SharedAccessPolicies.Add(policyName, sharedPolicy);
-            container.SetPermissions(permissions);
-        }
-
-        static string GetContainerSasUriWithPolicy(CloudBlobContainer container, string policyName)
-        {
-            //Generate the shared access signature on the container. In this case, all of the constraints for the
-            //shared access signature are specified on the stored access policy.
-            string sasContainerToken = container.GetSharedAccessSignature(null, policyName);
-
-            //Return the URI string for the container, including the SAS token.
-            return container.Uri + sasContainerToken;
-        }
-
     }
 }
